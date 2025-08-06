@@ -1,1 +1,1 @@
-# coinmarketcap-integration
+# CoinFeed
