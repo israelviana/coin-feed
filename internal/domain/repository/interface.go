@@ -9,3 +9,7 @@ type ICacheRepository interface {
 	Get(ctx context.Context, key string, result interface{}) error
 	Del(ctx context.Context, key string) error
 }
+
+type IRepository interface {
+	SaveLatestCryptoCurrency(ctx context.Context)
+}

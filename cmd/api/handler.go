@@ -19,7 +19,7 @@ func NewCryptoHandler(fetchCryptoCurrencyMap *usecase.FetchCryptocurrencyMap) *C
 }
 
 func (h *CryptoHandler) FetchCryptoCurrencyMap(c *gin.Context) {
-	cryptoCurrencyResponse, err := h.fetchCryptoCurrencyMap.Fetch(c)
+	cryptoCurrencyResponse, err := h.fetchCryptoCurrencyMap.Run(c)
 	if err != nil {
 		return
 	}
