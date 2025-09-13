@@ -1,0 +1,54 @@
+name: CI - Coin Feed
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout code (with submodules)
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Login to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+      - name: Redeploy Stack via Portainer API
+        run: |
+          curl -X PUT "$PORTAINER_URL/api/stacks/$STACK_ID/git/redeploy?endpointId=$ENDPOINT_ID" \
+             -H "X-API-Key:$PORTAINER_TOKEN" \
+             -H "Content-Type: application/json" \
+             -d '{
+             "pullImage": true,
+             "prune": true
+           }'
+        env:
+          PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+          PORTAINER_TOKEN: ${{ secrets.PORTAINER_TOKEN }}
+          STACK_ID: ${{ secrets.PORTAINER_STACK_ID }}
+          ENDPOINT_ID: ${{ secrets.ENDPOINT_ID }}
