@@ -6,5 +6,5 @@ import (
 
 type IProvider interface {
 	FetchCryptoCurrencyMap(ctx context.Context) (*CryptoCurrencyMapResponse, error)
-	FetchLatestCryptoCurrency(ctx context.Context, ids []string) (*LatestCryptoCurrencyResponse, error)
+	FetchLatestCryptoCurrency(ctx context.Context) (*LatestCryptoCurrencyResponse, error)
 }

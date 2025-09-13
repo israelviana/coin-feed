@@ -2,88 +2,74 @@ package usecase
 
 import (
 	"context"
-	"strconv"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"coin-feed/internal/domain/provider"
 	"coin-feed/internal/domain/repository"
 )
 
 type iSaveLatestCryptoCurrencyProvider interface {
-	FetchLatestCryptoCurrency(ctx context.Context, ids []string) (*provider.LatestCryptoCurrencyResponse, error)
+	FetchLatestCryptoCurrency(ctx context.Context) (*provider.LatestCryptoCurrencyResponse, error)
 }
 
 type iSaveLatestCryptoCurrencyRepository interface {
-	SaveLatestCryptoCurrency(ctx context.Context)
+	SaveLatestCryptoCurrency(ctx context.Context, data []*repository.CryptoCurrencyData) error
 }
 
 type SaveLatestCryptoCurrency struct {
 	providerDomain iSaveLatestCryptoCurrencyProvider
-	//repository     repository.IRepository
-	cache repository.ICacheRepository
+	repository     iSaveLatestCryptoCurrencyRepository
 }
 
-func NewSaveLatestCryptoCurrency(pd iSaveLatestCryptoCurrencyProvider, ch repository.ICacheRepository) *SaveLatestCryptoCurrency {
+func NewSaveLatestCryptoCurrency(pd iSaveLatestCryptoCurrencyProvider, rp iSaveLatestCryptoCurrencyRepository) *SaveLatestCryptoCurrency {
 	return &SaveLatestCryptoCurrency{
 		providerDomain: pd,
-		cache:          ch,
+		repository:     rp,
 	}
 }
 
 func (uc *SaveLatestCryptoCurrency) Run(ctx context.Context) error {
-	const cacheKey = "cryptoCurrencyMap"
-	var response provider.CryptoCurrencyMapResponse
-	err := uc.cache.Get(ctx, cacheKey, &response)
-	if err != nil {
-		return err
-	}
+	defer ctx.Done()
 
-	n := len(response.Data)
-	if n > 1000 {
-		n = 99
-	}
-
-	top := response.Data[:n]
-
-	ids := make([]string, n)
-	for i, c := range top {
-		ids[i] = strconv.Itoa(c.Id)
-	}
-
-	latestCryptoCurrency, err := uc.providerDomain.FetchLatestCryptoCurrency(ctx, ids)
+	latestCryptoCurrency, err := uc.providerDomain.FetchLatestCryptoCurrency(ctx)
 	if err != nil {
 		return err
 	}
 
 	var wg sync.WaitGroup
-	var next int64
 	cryptoCurrencyData := make([]*repository.CryptoCurrencyData, len(latestCryptoCurrency.Data))
-	for _, cryptoData := range latestCryptoCurrency.Data {
+	for i, cryptoData := range latestCryptoCurrency.Data {
 		cryptoData := cryptoData
-
+		i := i
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			i := int(atomic.AddInt64(&next, 1)) - 1
 
 			cryptoCurrencyData[i] = &repository.CryptoCurrencyData{
-				Id:          cryptoData.Id,
-				Name:        cryptoData.Name,
-				Symbol:      cryptoData.Symbol,
-				Open:        cryptoData.Quote.USD.Open,
-				High:        cryptoData.Quote.USD.High,
-				Low:         cryptoData.Quote.USD.Low,
-				Close:       cryptoData.Quote.USD.Close,
-				Volume:      cryptoData.Quote.USD.Volume,
-				LastUpdated: cryptoData.LastUpdated,
+				Id:                cryptoData.Id,
+				Name:              cryptoData.Name,
+				Symbol:            cryptoData.Symbol,
+				Platform:          cryptoData.Platform,
+				TotalSupply:       cryptoData.TotalSupply,
+				CirculatingSupply: cryptoData.CirculatingSupply,
+				Price:             cryptoData.Quote.USD.Price,
+				Volume24H:         cryptoData.Quote.USD.Volume24H,
+				VolumeChange24H:   cryptoData.Quote.USD.VolumeChange24H,
+				PercentChange1H:   cryptoData.Quote.USD.PercentChange1H,
+				PercentChange24H:  cryptoData.Quote.USD.PercentChange24H,
+				PercentChange7D:   cryptoData.Quote.USD.PercentChange7D,
+				PercentChange30D:  cryptoData.Quote.USD.PercentChange30D,
+				PercentChange60D:  cryptoData.Quote.USD.PercentChange60D,
+				PercentChange90D:  cryptoData.Quote.USD.PercentChange90D,
+				LastUpdated:       cryptoData.LastUpdated,
+				CreatedAt:         time.Now(),
 			}
 		}()
 	}
 	wg.Wait()
 
-	const cacheKeyElastic = "elasticSearch"
-	err = uc.cache.Set(ctx, cacheKeyElastic, cryptoCurrencyData, 44640)
+	err = uc.repository.SaveLatestCryptoCurrency(ctx, cryptoCurrencyData)
 	if err != nil {
 		return err
 	}

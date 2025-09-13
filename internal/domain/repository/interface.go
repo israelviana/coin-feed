@@ -11,5 +11,5 @@ type ICacheRepository interface {
 }
 
 type IRepository interface {
-	SaveLatestCryptoCurrency(ctx context.Context)
+	SaveLatestCryptoCurrency(ctx context.Context, data []*CryptoCurrencyData) error
 }

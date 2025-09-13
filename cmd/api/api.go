@@ -13,9 +13,6 @@ import (
 )
 
 func Start(cryptoHandler *CryptoHandler) {
-	logger.InitLogger()
-	defer logger.Logger.Sync()
-
 	tp := tracing.InitTracer()
 	defer tp.Shutdown(context.Background())
 

@@ -26,7 +26,7 @@ func InitLogger() {
 
 	config := zap.NewProductionConfig()
 	config.Level = zap.NewAtomicLevelAt(level)
-	config.OutputPaths = []string{"stdout", "coin-feed.log"}
+	//config.OutputPaths = []string{"stdout", "coin-feed.log"}
 	config.ErrorOutputPaths = []string{"stderr"}
 	config.EncoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	config.EncoderConfig.TimeKey = "timestamp"

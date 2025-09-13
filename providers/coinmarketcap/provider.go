@@ -2,7 +2,6 @@ package coinmarketcap
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"coin-feed/internal/domain/provider"
@@ -41,13 +40,15 @@ func (c *Provider) FetchCryptoCurrencyMap(ctx context.Context) (*provider.Crypto
 	return &cryptoCurrencyMap, nil
 }
 
-func (c *Provider) FetchLatestCryptoCurrency(ctx context.Context, ids []string) (*provider.LatestCryptoCurrencyResponse, error) {
+func (c *Provider) FetchLatestCryptoCurrency(ctx context.Context) (*provider.LatestCryptoCurrencyResponse, error) {
 	var cryptoCurrencyMap provider.LatestCryptoCurrencyResponse
 	_, err := c.resty.R().SetContext(ctx).SetResult(&cryptoCurrencyMap).
 		SetQueryParams(map[string]string{
-			"id": strings.Join(ids, ","),
+			"limit": "1000",
+			"sort":  "market_cap",
+			"start": "1",
 		}).
-		Get("/v2/cryptocurrency/ohlcv/latest")
+		Get("/v1/cryptocurrency/listings/latest")
 	if err != nil {
 		return nil, err
 	}
