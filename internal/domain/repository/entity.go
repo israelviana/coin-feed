@@ -1,6 +1,9 @@
 package repository
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type CryptoCurrencyData struct {
 	Id                int         `json:"id"`
@@ -20,4 +23,12 @@ type CryptoCurrencyData struct {
 	PercentChange90D  float64     `json:"percent_change_90d"`
 	LastUpdated       time.Time   `json:"last_updated"`
 	CreatedAt         time.Time   `json:"created_at"`
+}
+
+func (c *CryptoCurrencyData) MarshalBinary() ([]byte, error) {
+	return json.Marshal(c)
+}
+
+func (c *CryptoCurrencyData) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, c)
 }

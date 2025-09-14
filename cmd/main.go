@@ -31,8 +31,9 @@ func main() {
 	}
 	elasticsearchRepository := elasticsearchRepo.NewRepository(elasticsearchClient, "tito-crypto-tracker")
 	fetchCryptoCurrencyMapUseCase := usecase.NewFetchCryptocurrencyMap(coinMarketCapProvider, redisRepository)
+	getLatestCryptoCurrencyDataByIdUseCase := usecase.NewGetLatestCryptoCurrencyDataById(elasticsearchRepository, redisRepository)
 	saveLatestCryptoUseCase := usecase.NewSaveLatestCryptoCurrency(coinMarketCapProvider, elasticsearchRepository)
-	cryptoHandler := api.NewCryptoHandler(fetchCryptoCurrencyMapUseCase)
+	cryptoHandler := api.NewCryptoHandler(fetchCryptoCurrencyMapUseCase, getLatestCryptoCurrencyDataByIdUseCase)
 
 	//save crypto data
 	go func() {

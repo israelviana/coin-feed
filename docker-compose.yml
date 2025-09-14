@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  coin-feed-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      PORT: ${PORT}
+      API_KEY_COIN_MARKET_CAP: ${API_KEY_COIN_MARKET_CAP}
+      URL_COIN_MARKET_CAP: ${URL_COIN_MARKET_CAP}
+      REDIS_ADDR: ${REDIS_ADDR}
+      ELASTIC_SEARCH_URL: ${ELASTIC_SEARCH_URL}
+      ELASTIC_SEARCH_USERNAME: ${ELASTIC_SEARCH_USERNAME}
+      ELASTIC_SEARCH_PASSWORD: ${ELASTIC_SEARCH_PASSWORD}
+    ports:
+      - "${PORT}:${PORT}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:${PORT}/healthz || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

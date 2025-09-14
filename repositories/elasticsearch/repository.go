@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"time"
 
 	"coin-feed/internal/domain/repository"
@@ -90,20 +89,57 @@ func (r *Repository) SaveLatestCryptoCurrency(ctx context.Context, data []*repos
 	logger.Logger.Info(fmt.Sprintf("Bulk appended successfully: %d docs (flushed=%d)", len(data), stats.NumFlushed))
 	return nil
 }
-func bytesReader(b []byte) *byteReader { return &byteReader{b: b} }
 
-type byteReader struct{ b []byte }
-
-func (r *byteReader) Seek(offset int64, whence int) (int64, error) {
-	//TODO implement me
-	return 0, nil
-}
-
-func (r *byteReader) Read(p []byte) (int, error) {
-	if len(r.b) == 0 {
-		return 0, io.EOF
+func (r *Repository) GetLatestCryptoCurrencyDataById(ctx context.Context, id string) (*repository.CryptoCurrencyData, error) {
+	if id == "" {
+		return nil, fmt.Errorf("id is empty")
 	}
-	n := copy(p, r.b)
-	r.b = r.b[n:]
-	return n, nil
+
+	query := map[string]interface{}{
+		"size": 1,
+		"query": map[string]interface{}{
+			"term": map[string]interface{}{
+				"id": id,
+			},
+		},
+		"sort": []map[string]interface{}{
+			{"@timestamp": map[string]string{"order": "desc"}},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(query); err != nil {
+		return nil, fmt.Errorf("encode query: %w", err)
+	}
+
+	res, err := r.client.Search(
+		r.client.Search.WithContext(ctx),
+		r.client.Search.WithIndex(r.index),
+		r.client.Search.WithBody(&buf),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.IsError() {
+		return nil, fmt.Errorf("error search: %s", res.String())
+	}
+
+	var sr struct {
+		Hits struct {
+			Hits []struct {
+				Source repository.CryptoCurrencyData `json:"_source"`
+			} `json:"hits"`
+		} `json:"hits"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&sr); err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+
+	if len(sr.Hits.Hits) == 0 {
+		return nil, nil
+	}
+
+	return &sr.Hits.Hits[0].Source, nil
 }
