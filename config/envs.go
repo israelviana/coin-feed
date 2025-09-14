@@ -2,11 +2,6 @@ package config
 
 import (
 	"os"
-
-	"coin-feed/pkg/logger"
-
-	"github.com/joho/godotenv"
-	"go.uber.org/zap"
 )
 
 var (
@@ -19,10 +14,6 @@ var (
 )
 
 func LoadEnvs() {
-	if err := godotenv.Load(); err != nil {
-		logger.Logger.Fatal("No .env file found, using system environment", zap.Error(err))
-	}
-
 	ApiKeyCoinMarketCap = getEnv("API_KEY_COIN_MARKET_CAP", "")
 	UrlCoinMarketCap = getEnv("URL_COIN_MARKET_CAP", "")
 	RedisAddr = getEnv("REDIS_ADDR", "localhost:6379")

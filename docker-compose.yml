@@ -1,23 +1,80 @@
-version: "3.8"
-
 services:
-  coin-feed-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    environment:
-      PORT: ${PORT}
-      API_KEY_COIN_MARKET_CAP: ${API_KEY_COIN_MARKET_CAP}
-      URL_COIN_MARKET_CAP: ${URL_COIN_MARKET_CAP}
-      REDIS_ADDR: ${REDIS_ADDR}
-      ELASTIC_SEARCH_URL: ${ELASTIC_SEARCH_URL}
-      ELASTIC_SEARCH_USERNAME: ${ELASTIC_SEARCH_USERNAME}
-      ELASTIC_SEARCH_PASSWORD: ${ELASTIC_SEARCH_PASSWORD}
-    ports:
-      - "${PORT}:${PORT}"
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.3
+    container_name: es01
     restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+      ingest.geoip.downloader.enabled: "false"
+      bootstrap.memory_lock: "true"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile:  { soft: 65535, hard: 65535 }
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:${PORT}/healthz || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.1.3
+    container_name: kib01
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+      telemetry.enabled: "false"
+    ports:
+      - "5601:5601"
+
+  redis:
+    image: redis:7.4
+    container_name: redis01
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    volumes:
+      - redisdata:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
+
+  coin-feed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+        DATE: ${DATE:-unknown}
+    restart: unless-stopped
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: ${PORT:-9697}
+      API_KEY_COIN_MARKET_CAP: ${API_KEY_COIN_MARKET_CAP}
+      URL_COIN_MARKET_CAP: ${URL_COIN_MARKET_CAP}
+      REDIS_ADDR: redis:6379
+      ELASTIC_SEARCH_URL: "http://elasticsearch:9200"
+      ELASTIC_SEARCH_USERNAME: ${ELASTIC_SEARCH_USERNAME:-}
+      ELASTIC_SEARCH_PASSWORD: ${ELASTIC_SEARCH_PASSWORD:-}
+    ports:
+      - "${PORT:-9697}:${PORT:-9697}"
+
+volumes:
+  esdata:
+  redisdata:
